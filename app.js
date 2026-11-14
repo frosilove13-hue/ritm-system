@@ -200,7 +200,7 @@ function renderMeals(foods) {
     head.append(title);
     if (items.length) head.append(element('small', kcal(items.reduce((sum, item) => sum + item.tenths, 0) / 10)));
     if (group.time) {
-      const add = button(items.length ? '＋' : 'Добавить', () => editFood(null, group.id));
+      const add = button(items.length ? '＋' : 'Добавить', () => findFood(group.id));
       add.setAttribute('aria-label', 'Добавить продукт · ' + group.name);
       head.append(add);
     }
@@ -260,6 +260,7 @@ function renderExercises(exercises, trainingTitle) {
 }
 function dialog(title, remove) {
   action = null;
+  $('save').hidden = false;
   $('save').textContent = 'Сохранить';
   removal = remove;
   $('editor-title').textContent = title;
@@ -289,11 +290,82 @@ function number(value) {
   const result = Number(text);
   return result <= 99999 ? result : null;
 }
+function normalizeFoodName(value) {
+  return value.toLowerCase().replaceAll('ё', 'е').trim();
+}
+
+function recentlyLogged() {
+  const byName = new Map();
+  const days = Object.keys(data.days).sort().reverse();
+  const entries = days.flatMap(key => [...data.days[key].foods].reverse());
+  entries.sort((a, b) => (b.loggedAt ?? 0) - (a.loggedAt ?? 0));
+  for (const item of entries) {
+    const key = normalizeFoodName(item.name);
+    if (!byName.has(key)) byName.set(key, item);
+  }
+  return [...byName.values()];
+}
+
+function findFood(mealId) {
+  const fields = dialog('Добавить еду');
+  $('save').hidden = true;
+  const search = field(fields, 'Поиск продуктов', input('', {
+    type: 'search', autocomplete: 'off', placeholder: 'Например, гречка'
+  }));
+  const results = element('div', null, 'food-results');
+  const recent = recentlyLogged();
+  const manual = button('Ввести вручную', () => editFood(null, mealId, { name: search.value.trim() }), 'secondary');
+  fields.append(manual, results);
+  search.closest('label').classList.add('food-search');
+  manual.classList.add('food-manual');
+
+  function addGroup(title, items, choose) {
+    if (!items.length) return;
+    const group = element('section');
+    group.append(element('h3', title));
+    for (const item of items) {
+      const units = item.per100 != null ? kcal(item.per100) + ' / 100 г' : kcal(item.tenths / 10) + ' за порцию';
+      const choice = button(null, () => choose(item), 'food-choice');
+      choice.append(element('strong', item.name), element('span', units));
+      group.append(choice);
+    }
+    results.append(group);
+  }
+
+  function refresh() {
+    const query = normalizeFoodName(search.value);
+    const terms = query.split(/\s+/).filter(Boolean);
+    const matches = value => terms.every(term => normalizeFoodName(value).includes(term));
+    results.replaceChildren();
+    const recentMatches = recent.filter(item => matches(item.name));
+    addGroup('Недавние записи', recentMatches.slice(0, 6), item => editFood(null, mealId, item));
+    const matched = foodCatalog.filter(([, name, , aliases]) => matches(name + ' ' + aliases));
+    addGroup('Справочник продуктов', matched.slice(0, query ? 20 : 8)
+      .map(([, name, per100]) => ({ name, per100 })), item => editFood(null, mealId, item));
+    if (!recentMatches.length && !matched.length) results.append(element('p', 'Ничего не найдено. Можно ввести данные вручную.'));
+    if (results.childElementCount && matched.length) {
+      const link = element('a', 'Справочник USDA FoodData Central');
+      link.href = 'https://fdc.nal.usda.gov/download-datasets/';
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      const note = element('p', 'Справочные значения на 100 г. Калорийность может отличаться от этикетки. ');
+      note.append(link);
+      results.append(note);
+    }
+  }
+
+  search.addEventListener('input', refresh);
+  refresh();
+  showEditor();
+  search.focus();
+}
+
+
 function editFood(item, mealId, portionEstimate = item) {
   const key = date;
   const fields = dialog(item ? 'Изменить продукт' : 'Добавить продукт',
     item && (() => changeDay(key, day => { day.foods = day.foods.filter(food => food.id !== item.id); })));
-  const name = field(fields, 'Продукт или блюдо', input(item?.name, { maxLength: 100 }));
+  const name = field(fields, 'Продукт или блюдо', input(portionEstimate?.name, { maxLength: 100 }));
   const options = [...sortedMeals(data.meals), { id: 'other', name: 'Без привязки' }];
   if (item && !options.some(meal => meal.id === item.mealId)) options.push({ id: item.mealId, name: item.mealName });
   const meal = field(fields, 'Приём пищи', select(options, mealId ?? data.meals[0]?.id ?? 'other'));
@@ -302,7 +374,7 @@ function editFood(item, mealId, portionEstimate = item) {
   ], portionEstimate?.per100 != null ? 'weight' : 'portion'));
   const direct = element('div');
   const calc = element('div');
-  const portion = field(direct, 'Калории порции, ккал', input(item ? String(item.tenths / 10) : '', { inputMode: 'decimal' }));
+  const portion = field(direct, 'Калории порции, ккал', input(portionEstimate?.tenths != null ? String(portionEstimate.tenths / 10) : '', { inputMode: 'decimal' }));
   const energy = field(calc, 'Калорийность на 100 г, ккал', input(portionEstimate?.per100 ?? '', { inputMode: 'decimal' }));
   const grams = field(calc, 'Вес порции, г', input(portionEstimate?.grams ?? '', { inputMode: 'decimal' }));
   const preview = element('p');
@@ -319,7 +391,8 @@ function editFood(item, mealId, portionEstimate = item) {
   action = () => {
     const title = name.value.trim();
     if (!title) throw new Error('Укажите название продукта или блюда.');
-    const food = { id: item?.id ?? unique(), name: title, mealId: meal.value, mealName: meal.selectedOptions[0].textContent };
+    const food = { id: item?.id ?? unique(), name: title, mealId: meal.value,
+      mealName: meal.selectedOptions[0].textContent, loggedAt: item ? item.loggedAt : Date.now() };
     if (mode.value === 'weight') {
       food.per100 = number(energy.value);
       food.grams = number(grams.value);
@@ -335,7 +408,9 @@ function editFood(item, mealId, portionEstimate = item) {
       else day.foods.push(food);
     });
   };
+  const wasOpen = $('editor').open;
   showEditor();
+  if (wasOpen) (portionEstimate?.per100 != null ? grams : name).focus();
 }
 function portionTenths(energy, grams) {
   return Number((BigInt(Math.round(energy * 1000)) * BigInt(Math.round(grams * 1000)) + 5000000n) / 10000000n);
@@ -393,7 +468,7 @@ function editExercise(item) {
 }
 function showEditor() {
   $('close-editor').setAttribute('autofocus', '');
-  $('editor').showModal();
+  if (!$('editor').open) $('editor').showModal();
 }
 function editSettings() {
   const fields = dialog('Настройки');
@@ -491,7 +566,7 @@ $('next').addEventListener('click', () => selectDate(offsetDate(date, 1)));
 $('today').addEventListener('click', () => selectDate(dateKey(new Date())));
 $('date').addEventListener('change', event => selectDate(event.target.value));
 setupCalorieCalculator();
-$('add-food').addEventListener('click', () => editFood());
+$('add-food').addEventListener('click', () => findFood());
 $('add-exercise').addEventListener('click', () => editExercise());
 $('plan-training').addEventListener('click', editTrainingProgram);
 for (const section of ['nutrition', 'training']) {
@@ -505,6 +580,7 @@ for (const section of ['nutrition', 'training']) {
 $('close-editor').addEventListener('click', () => $('editor').close());
 $('edit-form').addEventListener('submit', event => {
   event.preventDefault();
+  if (!action) return;
   try { if (action() !== false) $('editor').close(); }
   catch (error) { showError(error); }
 });

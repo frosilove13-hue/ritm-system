@@ -154,3 +154,25 @@ form input:not([type=checkbox]), form select, form textarea { background: #100e2
     to { opacity:1; transform:translate(-50%, 0) scale(1); }
   }
 }
+
+.food-search { margin: 12px 0 8px; }
+.food-manual { width: 100%; }
+.food-results section { margin-top: 15px; }
+.food-results h3 { margin: 0 0 5px; color: var(--muted); font-size: .86rem; }
+.food-results a { color: var(--accent); }
+.food-choice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 3px;
+  color: var(--text);
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+}
+.food-choice strong { min-width: 0; font-size: .91rem; overflow-wrap: anywhere; }
+.food-choice span { flex-shrink: 0; color: var(--accent); font-size: .75rem; }
