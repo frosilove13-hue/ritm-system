@@ -243,7 +243,7 @@ function number(value) {
   const result = Number(text);
   return result <= 99999 ? result : null;
 }
-function editFood(item, mealId) {
+function editFood(item, mealId, portionEstimate = item) {
   const key = date;
   const fields = dialog(item ? 'Изменить продукт' : 'Добавить продукт',
     item && (() => changeDay(key, day => { day.foods = day.foods.filter(food => food.id !== item.id); })));
@@ -253,12 +253,12 @@ function editFood(item, mealId) {
   const meal = field(fields, 'Приём пищи', select(options, mealId ?? data.meals[0]?.id ?? 'other'));
   const mode = field(fields, 'Способ подсчёта', select([
     { id: 'portion', name: 'Калории порции' }, { id: 'weight', name: 'По весу и калорийности на 100 г' }
-  ], item?.per100 != null ? 'weight' : 'portion'));
+  ], portionEstimate?.per100 != null ? 'weight' : 'portion'));
   const direct = element('div');
   const calc = element('div');
   const portion = field(direct, 'Калории порции, ккал', input(item ? String(item.tenths / 10) : '', { inputMode: 'decimal' }));
-  const energy = field(calc, 'Калорийность на 100 г, ккал', input(item?.per100 ?? '', { inputMode: 'decimal' }));
-  const grams = field(calc, 'Вес порции, г', input(item?.grams ?? '', { inputMode: 'decimal' }));
+  const energy = field(calc, 'Калорийность на 100 г, ккал', input(portionEstimate?.per100 ?? '', { inputMode: 'decimal' }));
+  const grams = field(calc, 'Вес порции, г', input(portionEstimate?.grams ?? '', { inputMode: 'decimal' }));
   const preview = element('p');
   calc.append(preview);
   fields.append(direct, calc);
@@ -294,6 +294,39 @@ function editFood(item, mealId) {
 function portionTenths(energy, grams) {
   return Number((BigInt(Math.round(energy * 1000)) * BigInt(Math.round(grams * 1000)) + 5000000n) / 10000000n);
 }
+function setupCalorieCalculator() {
+  const energy = $('calculator-energy');
+  const weight = $('calculator-weight');
+  const result = $('calculator-result');
+  const error = $('calculator-error');
+  const add = $('calculator-add');
+
+  function readPortion() {
+    const per100 = number(energy.value);
+    const grams = number(weight.value);
+    return per100 != null && grams > 0 ? { per100, grams } : null;
+  }
+
+  function refresh() {
+    const portion = readPortion();
+    result.textContent = portion ? kcal(portionTenths(portion.per100, portion.grams) / 10) : '—';
+    add.disabled = !portion;
+    const invalidEnergy = Boolean(energy.value.trim()) && number(energy.value) == null;
+    const invalidWeight = Boolean(weight.value.trim()) && !(number(weight.value) > 0);
+    energy.setAttribute('aria-invalid', String(invalidEnergy));
+    weight.setAttribute('aria-invalid', String(invalidWeight));
+    error.hidden = !invalidEnergy && !invalidWeight;
+  }
+
+  for (const control of [energy, weight]) control.addEventListener('input', refresh);
+  $('portion-form').addEventListener('submit', event => {
+    event.preventDefault();
+    const portion = readPortion();
+    if (portion) editFood(null, null, portion);
+  });
+  refresh();
+}
+
 function editExercise(item) {
   const key = date;
   const fields = dialog(item ? 'Изменить упражнение' : 'Добавить упражнение',
@@ -411,6 +444,7 @@ $('previous').addEventListener('click', () => selectDate(offsetDate(date, -1)));
 $('next').addEventListener('click', () => selectDate(offsetDate(date, 1)));
 $('today').addEventListener('click', () => selectDate(dateKey(new Date())));
 $('date').addEventListener('change', event => selectDate(event.target.value));
+setupCalorieCalculator();
 $('add-food').addEventListener('click', () => editFood());
 $('add-exercise').addEventListener('click', () => editExercise());
 $('plan-training').addEventListener('click', editTrainingProgram);

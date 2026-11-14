@@ -9,9 +9,9 @@
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="apple-touch-icon" href="./icon-180.png?v=3">
   <link rel="stylesheet" href="./style.css?v=3">
-  <link rel="stylesheet" href="./system.css?v=3">
+  <link rel="stylesheet" href="./system.css?v=4">
   <script src="./training.js?v=3" defer></script>
-  <script src="./app.js?v=3" defer></script>
+  <script src="./app.js?v=4" defer></script>
 </head>
 <body>
   <header class="top">
@@ -55,6 +55,24 @@
         <div><h2 id="energy-title">Калории за день</h2><div id="total">0 <small>ккал</small></div><p id="goal-line"></p></div>
         <div class="ring" id="ring" hidden><span id="percent"></span></div>
       </section>
+      <details class="calorie-calculator" id="calorie-calculator">
+        <summary>Калькулятор калорий</summary>
+        <form id="portion-form">
+          <div class="calculator-inputs">
+            <label>Калорийность, ккал на 100 г
+              <input id="calculator-energy" inputmode="decimal" autocomplete="off" placeholder="Например, 150">
+            </label>
+            <label>Вес порции, г
+              <input id="calculator-weight" inputmode="decimal" autocomplete="off" placeholder="Например, 200">
+            </label>
+          </div>
+          <div class="calculator-result">
+            <div><p>Калории порции</p><output id="calculator-result" for="calculator-energy calculator-weight" aria-live="polite">—</output></div>
+            <button type="submit" class="secondary" id="calculator-add" disabled>В дневник</button>
+          </div>
+          <p id="calculator-error" role="alert" hidden>Введите калорийность от 0 до 99 999 и вес больше 0, до 99 999 г.</p>
+        </form>
+      </details>
       <div class="section-head"><h2>Приёмы пищи</h2><button id="add-food" class="primary">＋ Добавить</button></div>
       <div id="meals"></div>
     </section>

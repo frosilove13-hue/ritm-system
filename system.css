@@ -104,3 +104,37 @@ dialog::backdrop { background: #050918c7; }
 form input:not([type=checkbox]), form select, form textarea { background: #0d162b; border-color: #4c638e; }
 #error { color: #ffa6bc; }
 
+.calorie-calculator {
+  margin-bottom: 18px;
+  padding: 0 13px;
+  border: 1px solid #384b74;
+  border-radius: 15px;
+  background: var(--panel);
+}
+.calorie-calculator summary {
+  padding: 13px 0;
+  cursor: pointer;
+  color: #dce9ff;
+  font-weight: 700;
+}
+.calorie-calculator form { padding: 0 0 13px; }
+.calculator-inputs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 10px;
+  align-items: end;
+}
+.calculator-inputs label { margin-top: 3px; }
+.calculator-inputs input { min-width: 0; }
+.calculator-result {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 8px;
+  margin-top: 12px;
+}
+.calculator-result p { margin-top: 0; }
+.calculator-result output { display: block; color: var(--cyan); font-size: 1.28rem; font-weight: 750; overflow-wrap: anywhere; }
+.calculator-result button { flex-shrink: 0; }
+.calculator-result button:disabled { cursor: default; opacity: .55; }
+#calculator-error { color: #ffa6bc; }
