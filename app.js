@@ -115,6 +115,49 @@ function renderPlayer(day) {
   state.textContent = quest.complete ? 'Выполнено · +' + quest.xp + ' XP' :
     '+' + (day.exercises.length * xpPerExercise + xpPerQuest) + ' XP за задание';
 }
+function renderWeek(today) {
+  const monday = offsetDate(date, -((asDate(date).getDay() + 6) % 7));
+  $('week-days').replaceChildren(...Array.from({ length: 7 }, (_, offset) => {
+    const key = offsetDate(monday, offset);
+    const day = dayAt(data, key);
+    const selected = key === date;
+    const complete = questProgress(day.exercises).complete;
+    const state = complete ? 'complete' : day.exercises.length ? 'planned' : 'empty';
+    const description = complete ? 'выполнено' : day.trainingTitle ??
+      (day.exercises.length ? 'есть упражнения' : 'нет задания');
+    const dayDate = asDate(key);
+    const control = button(null, () => {
+      selectDate(key);
+      $('week-days').querySelector('[aria-pressed="true"]')?.focus({ preventScroll: true });
+    }, 'week-day');
+    control.dataset.state = state;
+    control.setAttribute('aria-pressed', String(selected));
+    if (key === today) control.setAttribute('aria-current', 'date');
+    control.setAttribute('aria-label', dayDate.toLocaleDateString('ru-RU', {
+      weekday: 'long', day: 'numeric', month: 'long'
+    }) + ' · ' + description);
+    const dayName = dayDate.toLocaleDateString('ru-RU', { weekday: 'short' });
+    const marker = element('span', complete ? '✓' : '', 'week-marker');
+    marker.setAttribute('aria-hidden', 'true');
+    control.append(element('span', dayName), element('strong', dayDate.getDate()), marker);
+    return control;
+  }));
+}
+
+let rewardTimer;
+function showReward(gained, levelBefore) {
+  const toast = $('xp-reward');
+  clearTimeout(rewardTimer);
+  toast.hidden = gained <= 0;
+  if (toast.hidden) return;
+  const level = Number($('player-level').textContent);
+  toast.textContent = (level > levelBefore ? 'Уровень ' + level + ' · ' : '') + '+' + gained + ' XP';
+  toast.classList.remove('reward-enter');
+  void toast.offsetWidth;
+  toast.classList.add('reward-enter');
+  rewardTimer = setTimeout(() => { toast.hidden = true; }, 2100);
+}
+
 function render() {
   const today = dateKey(new Date());
   const day = dayAt(data, date);
@@ -135,6 +178,7 @@ function render() {
   $('percent').textContent = percent + '%';
   renderMeals(day.foods);
   renderPlayer(day);
+  renderWeek(today);
   $('training-title').textContent = day.trainingTitle ?? '';
   $('training-title').hidden = !day.trainingTitle;
   renderExercises(day.exercises, day.trainingTitle);
@@ -190,9 +234,11 @@ function renderExercises(exercises, trainingTitle) {
     check.setAttribute('aria-label', 'Выполнено · ' + exercise.name);
     check.addEventListener('change', () => {
       const before = questProgress(dayAt(data, key).exercises).xp;
+      const levelBefore = Number($('player-level').textContent);
       try {
         changeDay(key, day => { day.exercises.find(item => item.id === exercise.id).done = check.checked; });
         const gained = questProgress(dayAt(data, key).exercises).xp - before;
+        showReward(gained, levelBefore);
         $('status').textContent = gained > 0 ? 'Получено +' + gained + ' XP' : 'Отметка снята.';
         for (const control of $('exercises').querySelectorAll('input')) {
           if (control.getAttribute('aria-label') === check.getAttribute('aria-label')) { control.focus(); break; }
