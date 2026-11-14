@@ -1,5 +1,5 @@
-const version = 'ritm-offline-v5';
-const files = ['./', './index.html', './style.css?v=3', './system.css?v=5', './app.js?v=5', './training.js?v=3', './manifest.webmanifest', './icon-180.png?v=5', './icon-192.png?v=5', './icon-512.png?v=5'];
+const version = 'ritm-offline-v6';
+const files = ['./', './index.html', './style.css?v=3', './system.css?v=6', './app.js?v=5', './training.js?v=3', './manifest.webmanifest', './icon-180.png?v=6', './icon-192.png?v=6', './icon-512.png?v=6'];
 self.addEventListener('install', event => event.waitUntil((async () => {
   const cache = await caches.open(version);
   await cache.addAll(files);
